@@ -1,0 +1,29 @@
+legID = 1 if self.state < 3 else 2
+                otherLegID = 3 - legID
+                targetAngles = self.FL_leg.ik(np.add(self.defaultPos, [height, 0, 0]))
+                otherTargetAngles = self.defaultAngle
+                position, velocity, time = self.pvt(
+                    legID, targetAngles, 0.1, duration, rampTime
+                )
+                position2, velocity2, time2 = self.pvt(
+                    otherLegID, otherTargetAngles, 0.1, duration, rampTime
+                )
+                print(targetAngles)
+                print(otherTargetAngles)
+                for i in range(0, len(position)):
+                    newAngles = self.controllers.setAngle(
+                        position[i], legID, velocity[i]
+                    )
+                    newAngles = self.controllers.setAngle(
+                        position2[i], legID, velocity2[i]
+                    )
+
+                self.state = self.state + 1
+
+
+
+
+targetAngles [ 2.15195423e-06 -5.91160885e+01  1.10533398e+02]
+targetAngles [ 2.15195423e-06 -1.01929955e+01  8.89655787e+01]
+targetAngles [1.22886393e-06 2.32171282e+01 0.00000000e+00]
+targetAngles [ 1.22886393e-06 -1.11137067e-02  2.12390930e-02]
