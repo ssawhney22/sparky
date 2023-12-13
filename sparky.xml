@@ -2,7 +2,7 @@
 
 <mujoco model="sparky">
   <compiler angle="radian" meshdir="meshes/" autolimits="true"/>
-
+   <option cone="elliptic" impratio="100"/>
   <default>
     <default class="sparky">
       <geom friction="0.6" margin="0.001"/>
@@ -42,11 +42,11 @@
   <worldbody>
     <body name="trunk" pos="0 0 0.01" quat= "1 1 0 0" childclass="sparky">
       <freejoint/>
-      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="base_link"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mass="0.75" mesh="base_link"/>
       <geom type="mesh" mesh="base_link"/>
       <body name="front_right_abductor1" pos="0.0635 0.467668 0.162569">
-        <inertial pos="-0.00132483 -0.000708044 0.054912" quat="0.999741 0.011413 -0.00793461 -0.0180434" mass="0.445618" diaginertia="0.000684714 0.000488292 0.000363042"/>
-        <joint class="abductor" name="FL_abductor" pos="0 0 0" axis="0 0 1"/>
+        <inertial pos="-0.00132483 -0.000708044 0.054912" quat="0.999741 0.011413 -0.00793461 -0.0180434" mass="0.445618" diaginertia="0.000684714 0.000488292 0.000363042" />
+        <joint class="abductor" name="FL_abductor" pos="0 0 0" axis="0 0 1" damping = "1"/>
         <geom pos="-0.0635 -0.467668 -0.162569" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="front_right_abductor1"/>
         <geom pos="-0.0635 -0.467668 -0.162569" type="mesh" mesh="front_right_abductor1"/>
         <body name="front_left_upper_leg1" pos="0.0254 0 0.0635">
@@ -56,7 +56,7 @@
           <geom pos="-0.0889 -0.467668 -0.226069" type="mesh" mesh="front_left_upper_leg1"/>
           <body name="front_left_lower_leg1" pos="0.068262 -0.22225 0">
             <inertial pos="-0.000610027 -0.100884 3.1979e-07" quat="0.707102 0.707102 -0.00255178 -0.00255178" mass="0.0866073" diaginertia="0.000811444 0.000805933 1.15493e-05"/>
-            <joint class="knee" name="FL_knee" pos="0 0 0" axis="-1 0 0"/>
+            <joint class="knee" name="FL_knee" pos="0 0 0" axis="-1 0 0" />
             <geom pos="-0.157162 -0.245418 -0.226069" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="front_left_lower_leg1"/>
             <geom pos="-0.157162 -0.245418 -0.226069" type="mesh" mesh="front_left_lower_leg1"/>
           </body>
@@ -64,7 +64,7 @@
       </body>
       <body name="front_left_abductor1" pos="-0.0635 0.467668 0.162569">
         <inertial pos="0.00132483 -0.000708044 0.054912" quat="0.999741 0.011413 0.00793461 0.0180434" mass="0.445618" diaginertia="0.000684714 0.000488292 0.000363042"/>
-        <joint class="abductor" name="FR_abductor" pos="0 0 0" axis="0 0 -1"/>
+        <joint class="abductor" name="FR_abductor" pos="0 0 0" axis="0 0 -1" damping = "1"/>
         <geom pos="0.0635 -0.467668 -0.162569" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="front_left_abductor1"/>
         <geom pos="0.0635 -0.467668 -0.162569" type="mesh" mesh="front_left_abductor1"/>
         <body name="front_right_upper_leg1" pos="-0.0254 0 0.0635">
@@ -74,7 +74,7 @@
           <geom pos="0.0889 -0.467668 -0.226069" type="mesh" mesh="front_right_upper_leg1"/>
           <body name="front_right_lower_leg1" pos="-0.068263 -0.22225 0">
             <inertial pos="0.00061119 -0.100883 2.61096e-07" quat="0.707102 0.707102 0.00255243 0.00255243" mass="0.086607" diaginertia="0.000811441 0.00080593 1.1549e-05"/>
-            <joint class="knee" name="FR_knee" pos="0 0 0" axis="-1 0 0"/>
+            <joint class="knee" name="FR_knee" pos="0 0 0" axis="-1 0 0" />
             <geom pos="0.157163 -0.245418 -0.226069" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="front_right_lower_leg1"/>
             <geom pos="0.157163 -0.245418 -0.226069" type="mesh" mesh="front_right_lower_leg1"/>
           </body>
@@ -82,7 +82,7 @@
       </body>
       <body name="back_right_abductor1" pos="0.0635 0.467668 -0.158106">
         <inertial pos="-0.00132483 -0.000708044 -0.0549114" quat="0.999741 -0.011413 0.00793461 -0.0180434" mass="0.445618" diaginertia="0.000684714 0.000488292 0.000363042"/>
-        <joint class="abductor" name="BL_abductor" pos="0 0 0" axis="0 0 1"/>
+        <joint class="abductor" name="BL_abductor" pos="0 0 0" axis="0 0 1" damping = "1"/>
         <geom pos="-0.0635 -0.467668 0.158106" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="back_right_abductor1"/>
         <geom pos="-0.0635 -0.467668 0.158106" type="mesh" mesh="back_right_abductor1"/>
         <body name="back_left_upper_leg1" pos="0.0254 0 -0.0635">
@@ -92,7 +92,7 @@
           <geom pos="-0.0889 -0.467668 0.221606" type="mesh" mesh="back_left_upper_leg1"/>
           <body name="back_left_lower_leg1" pos="0.068262 -0.22225 0">
             <inertial pos="-0.000610027 -0.100884 3.1979e-07" quat="0.707102 0.707102 -0.00255178 -0.00255178" mass="0.0866073" diaginertia="0.000811444 0.000805933 1.15493e-05"/>
-            <joint class="knee" name="BL_knee" pos="0 0 0" axis="1 0 0"/>
+            <joint class="knee" name="BL_knee" pos="0 0 0" axis="1 0 0" />
             <geom pos="-0.157162 -0.245418 0.221606" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="back_left_lower_leg1"/>
             <geom pos="-0.157162 -0.245418 0.221606" type="mesh" mesh="back_left_lower_leg1"/>
           </body>
@@ -100,7 +100,7 @@
       </body>
       <body name="back_left_abductor1" pos="-0.0635 0.467668 -0.158106">
         <inertial pos="0.00132483 -0.000708044 -0.0549114" quat="0.999741 -0.011413 -0.00793461 0.0180434" mass="0.445618" diaginertia="0.000684714 0.000488292 0.000363042"/>
-        <joint class="abductor" name="BR_abductor" pos="0 0 0" axis="0 0 -1"/>
+        <joint class="abductor" name="BR_abductor" pos="0 0 0" axis="0 0 -1" damping = "1"/>
         <geom pos="0.0635 -0.467668 0.158106" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="back_left_abductor1"/>
         <geom pos="0.0635 -0.467668 0.158106" type="mesh" mesh="back_left_abductor1"/>
         <body name="back_right_upper_leg1" pos="-0.0254 0 -0.0635">
@@ -110,7 +110,7 @@
           <geom pos="0.0889 -0.467668 0.221606" type="mesh" mesh="back_right_upper_leg1"/>
           <body name="back_right_lower_leg1" pos="-0.068263 -0.22225 0">
             <inertial pos="0.00061119 -0.100883 2.61096e-07" quat="0.707102 0.707102 0.00255243 0.00255243" mass="0.086607" diaginertia="0.000811441 0.00080593 1.1549e-05"/>
-            <joint class="knee" name="BR_knee" pos="0 0 0" axis="1 0 0"/>
+            <joint class="knee" name="BR_knee" pos="0 0 0" axis="1 0 0" />
             <geom pos="0.157163 -0.245418 0.221606" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="back_right_lower_leg1"/>
             <geom pos="0.157163 -0.245418 0.221606" type="mesh" mesh="back_right_lower_leg1"/>
           </body>

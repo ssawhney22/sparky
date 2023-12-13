@@ -27,3 +27,28 @@ targetAngles [ 2.15195423e-06 -5.91160885e+01  1.10533398e+02]
 targetAngles [ 2.15195423e-06 -1.01929955e+01  8.89655787e+01]
 targetAngles [1.22886393e-06 2.32171282e+01 0.00000000e+00]
 targetAngles [ 1.22886393e-06 -1.11137067e-02  2.12390930e-02]
+
+
+
+
+case 0:
+                targetAngles = np.pi/180*np.add(self.legs[legID].getServos(False),[0,0,0])
+                targetAngles2 = np.pi/180*np.add(self.legs[adjacentLegID].getServos(False) ,[0,0,tiltAngle])
+                targetAngles3 = np.pi/180*np.add(self.legs[supportLegID].getServos(False) ,[0,0,0])
+            case 1:
+                print("currentPos",self.legs[legID].getPos())
+                print(self.legs[legID].ik(np.add(self.legs[legID].getPos(), [fHeight, 0, 0])))
+                targetAngles = self.legs[legID].ik(np.add(self.legs[legID].getPos(), [fHeight, 0, 0]),True)
+                targetAngles2 = np.pi/180*self.legs[adjacentLegID].getServos(False) 
+                targetAngles3 = np.pi/180*self.legs[supportLegID].getServos(False) 
+            case 2:
+                print("currentPos",self.legs[legID].getPos())
+                targetAngles = self.legs[legID].ik(np.add(self.legs[legID].getPos(), [0, 0, rearLegFactor*fDistance]),True)
+                targetAngles2 = np.pi/180*self.legs[adjacentLegID].getServos(False) 
+                targetAngles3 = np.pi/180*self.legs[supportLegID].getServos(False) 
+            
+            case 3:
+                print("currentPos",self.legs[legID].getPos())
+                targetAngles = self.legs[legID].ik(np.add(self.legs[legID].getPos(), [-1*fHeight, 0, 0]),True)
+                targetAngles2 = np.pi/180*self.defaultAngle
+                targetAngles3 = np.pi/180*self.defaultAngle

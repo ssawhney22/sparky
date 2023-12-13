@@ -15,7 +15,8 @@ import matplotlib.pyplot as plt
 class Servo:
     def __init__(self, id):
         self.id = id
-
+        self.defaultAngles = np.array([0, -30, 70])
+        #self.set_target_angle(self.defaultAngles[self.id%3],False)
     def set_target_angle(self, pos_deg, use_rad=False):
         """
         set position in degrees
@@ -166,7 +167,7 @@ class Leg:
     KNEE_GEAR_RATIO = 1.5
 
     def __init__(
-        self, name, abductor_id, hip_id, knee_id, z_dir_forward, y_dir_to_right
+        self, name, abductor_id, hip_id, knee_id, z_dir_forward, y_dir_to_right, defaultAngle
     ):
         print("Setting Up Leg: ", name)
         self.name = name
@@ -175,6 +176,7 @@ class Leg:
         self.knee = Servo(knee_id)
         self.offset_forward = z_dir_forward
         self.offset_right = y_dir_to_right
+        self.defaultPos = self.fk(defaultAngle)
 
     def ik(self, position, retRad=False):
         # go to a position in leg space
@@ -190,7 +192,10 @@ class Leg:
 
         b = np.sqrt(x * x + y * y - r2 * r2)
         c = np.sqrt(b * b + (z - r1) * (z - r1))
-        t1 = np.arctan(np.sqrt(b * b) / r2) + np.arctan(x / y)
+        if self.name == "FR" or self.name == "BL":
+            t1 = np.arctan(b / r2) - np.arctan(x / y)
+        else:
+            t1 = np.arctan(b / r2) + np.arctan(x / y)
 
         t2 = np.arctan((z - r1) / b) - np.arccos(
             np.clip((r4 * r4 - c * c - r3 * r3) / (-2 * c * r3), -1, 1)
@@ -200,15 +205,15 @@ class Leg:
         )
 
         if retRad:
-            return [t1, t2, t3]
+            return np.array([t1, t2, t3])
         else:
-            return [180 / np.pi * t1, 180 / np.pi * t2, 180 / np.pi * t3]
+            return np.array([180 / np.pi * t1, 180 / np.pi * t2, 180 / np.pi * t3])
 
-    def fk(self, currAngles, inputDeg=True):
+    def fk(self, currAngles, inputRad=False):
         t1 = currAngles[0]
         t2 = currAngles[1]
         t3 = currAngles[2]
-        if inputDeg:
+        if not inputRad:
             t1 = currAngles[0] * np.pi / 180
             t2 = currAngles[1] * np.pi / 180
             t3 = currAngles[2] * np.pi / 180
@@ -245,12 +250,13 @@ class Leg:
         self.hip.set_target_angle(angles[1], use_rad)
         self.knee.set_target_angle(angles[2] * self.KNEE_GEAR_RATIO, use_rad)
 
-    def getServos(self, use_rad=True):
+    def getServos(self, use_rad=False):
         t1 = self.abductor.get_angle(use_rad)  # abductor_rad
         t2 = self.hip.get_angle(use_rad)  # hip_rad
         t3 = self.knee.get_angle(use_rad)  # knee_rad
-        return [t1, t2, t3]
-
+        return np.array([t1, t2, t3])
+    def getPos(self):
+        return np.array(self.fk(self.getServos(False),False))
     def is_grounded(self):
         # determines if a leg is grounded based on position and torques
 
@@ -260,22 +266,19 @@ class Leg:
 class Quad:
     def __init__(self):
         # create the leg objects
-        self.FR_leg = Leg("FR", 3, 4, 5, True, True)
-        self.FL_leg = Leg("FL", 0, 1, 2, True, False)
-        self.BR_leg = Leg("BR", 9, 10, 11, False, True)
-        self.BL_leg = Leg("BL", 6, 7, 8, False, False)
-        self.state = 0
+        self.defaultAngle = np.array([0, -15, 60])
+        self.FR_leg = Leg("FR", 3, 4, 5, True, True,self.defaultAngle)
+        self.FL_leg = Leg("FL", 0, 1, 2, True, False,self.defaultAngle)
+        self.BR_leg = Leg("BR", 9, 10, 11, False, True,self.defaultAngle)
+        self.BL_leg = Leg("BL", 6, 7, 8, False, False,self.defaultAngle)
+        self.state = 100
         self.legToMove = 0
-        self.defaultPos = np.array([-466.25, 93.6625, 107.95])
-        self.defaultAngle = np.array([0, 0, 0])
         self.legs = [self.FR_leg, self.FL_leg, self.BR_leg, self.BL_leg]
         # self.controllers = Moteus()
         #self.legs = [self.FL_leg, self.FR_leg]
-        # self.pos = [0, 0, 401.25]
-        # self.vel = [0, 0, 0]
-        # self.rot = [0, 0, 0]
-        self.maxVel = 5
-        self.maxAccel= 5
+        self.maxVel = 15
+        self.maxAccel= 60
+        
         return
 
     def setLeg(self, legID, arr, fk=False, use_rad=True):
@@ -283,10 +286,10 @@ class Quad:
         limb = self.legs[legID]
         if fk:
             limb.setServos(arr, use_rad)
-            self.controllers.setAngle(arr, i, False)
+            #self.controllers.setAngle(arr, i, False)
         else:
             [t1, t2, t3] = limb.ik(arr)
-            self.controllers.setAngle([t1, t2, t3], i, False)
+           # self.controllers.setAngle([t1, t2, t3], i, False)
             limb.setServos([t1, t2, t3], use_rad)
             print("%.4f, %.4f, %.4f" % (t1, t2, t3))
         return
@@ -327,23 +330,27 @@ class Quad:
 
         return position, velocity, time
 
-    def pvt_Sim(self, targetAngles, sampleRate, useRad=False,duration = np.nan):
+    def pvt_Sim(self, legID, targetAngles, sampleRate, useRad=False,length = np.nan,currAngles = np.array([np.nan,np.nan,np.nan])):
         radFactor = 1 if useRad else np.pi/180
-        targetAngles = radFactor*np.array(targetAngles)
+        targetAngles = radFactor*targetAngles
         #currAngles = np.array([0,0,0])
-        currAngles = np.array(self.legs[self.legToMove].getServos(True))
+        if np.isnan(currAngles).all():
+            currAngles = self.legs[legID].getServos(True)
         difference = np.subtract(targetAngles, currAngles)
-        #print(difference)
-        if np.isnan(duration):
-            duration = np.nanmax(np.abs(difference/(self.maxVel))+self.maxVel/self.maxAccel)
+        duration = np.nanmax(np.abs(difference/(self.maxVel))+self.maxVel/self.maxAccel)
         
         
-        print("Duration",duration)
-        length =   int(np.ceil(duration / sampleRate))+1
         
+        if np.isnan(length):
+            length =  int(np.ceil(duration / sampleRate))+1
+            #print("No Input Len:",length)
+        else:
+            #print("Input Len:",length)
+            duration = (length-1)*sampleRate
+        #print("Duration",duration)
         #print(maxReachVel)
-        position = np.zeros([length, 3])
-        velocity = np.zeros([length, 3])
+        position = np.zeros((length, 3))
+        velocity = np.zeros((length, 3))
         time = np.reshape(np.arange(0, duration+sampleRate, sampleRate), (length, 1))
         for i in range(0, 3):
             if np.abs(difference[i]) < 0.01 or np.isnan(difference[i]):
@@ -351,7 +358,7 @@ class Quad:
                 position[:,i] = np.reshape(np.tile(currAngles[i], (length, 1)),(length,))
             else:
                 maxReachVel = (duration*self.maxAccel-np.sqrt(duration*duration*self.maxAccel*self.maxAccel-4*difference[i]*self.maxAccel))/(2)
-                rampLength = min(int(np.abs((maxReachVel/self.maxAccel)/sampleRate)),int(np.abs((self.maxVel/self.maxAccel)/sampleRate+1)))
+                rampLength = min(int(np.abs((maxReachVel/self.maxAccel)/sampleRate)),int(np.abs((self.maxVel/self.maxAccel)/sampleRate)))
                 
                 dirFactor = -1 if difference[i] < 0 else 1
                 accel = dirFactor*np.concatenate((self.maxAccel*np.ones((1,rampLength+1),dtype=float)[0,:],np.zeros((1,length-2*rampLength-1),dtype=float)[0,:],-1*self.maxAccel*np.ones((1,rampLength),dtype=float)[0,:]))
@@ -361,77 +368,189 @@ class Quad:
                     else:
                         velocity[index,i] = velocity[index-1,i]+accel[index]*sampleRate
                         position[index, i] = ( position[index - 1, i] + velocity[index,i] * sampleRate)
-        
-        print("Position",180/np.pi*position[-1])
+                
+
+
+        #print("Max Vel",np.amax(np.abs(velocity),axis=0))
+        print("Final Angles",180/np.pi*position[-1])
+        #print("Final Position",self.legs[legID].fk(position[-1],False))
         # plt.figure()
         # plt.plot(time,velocity[:,0])
         # plt.plot(time,velocity[:,1])
         # plt.plot(time,velocity[:,2])
         # plt.show()
             
-        return position, velocity, time
-
-    def step(self, legID, vHeight, vDistance, hDist,sampleRate):
+        return np.reshape(position,(length,3)), np.reshape(velocity,(length,3)), np.reshape(time,(length,1))
+    def creepStep(self, legID, fHeight, fDistance, hDist,sampleRate):
         legID=self.legToMove
-        print("Step", self.state, " Leg",self.legToMove)
-        print("Current Angles",self.legs[legID].getServos(False))
-        position= np.nan
-        velocity = np.nan
-        time = np.nan
+        print("\n\nStep", self.state, " Leg",legID)
+        print("Current Leg Angles",self.legs[legID].getServos(False))
+        
+        if self.state >= 100:    
+            print("Set Up")
+            pos1 =  self.legs[legID].ik(np.add(self.legs[legID].defaultPos, [0, 0, fDistance]),True)
+            pos2=  self.legs[legID].ik(np.add(self.legs[legID].defaultPos, [0, 0, int(fDistance*2/3)]),True)
+            pos3=  self.legs[legID].ik(np.add(self.legs[legID].defaultPos, [0, 0, int(fDistance*1/3)]),True)
+            pos4=  self.legs[legID].ik(self.legs[legID].defaultPos,True)
+            position, velocity, time = self.pvt_Sim(legID,pos1, sampleRate,True) 
+            position2,velocity2,time2 = self.pvt_Sim((legID + 1)%4,pos2, sampleRate,True,len(time))
+            position3,velocity3,time3 = self.pvt_Sim((legID + 2)%4,pos3, sampleRate,True,len(time))
+            position4,velocity4,time4 = self.pvt_Sim((legID + 3)%4,pos4, sampleRate,True,len(time))
+            for i in range(0, len(position)):
+                mujoco.mj_step(model, data)
+                
+                self.legs[0].setServos(position[i,:],True)
+                self.legs[1].setServos(position2[i,:],True)
+                self.legs[2].setServos(position3[i,:],True)
+                self.legs[3].setServos(position4[i,:],True)
+                
+                viewer.sync()
+                tm.sleep(sampleRate)
+            self.legToMove = (legID + 1) % 4 
+            self.state = (self.state + 1) % 101        
+        else: 
+            pos1_1 = self.legs[legID].ik(np.add(self.legs[legID].defaultPos, [fHeight, 0, 0]),True)
+            pos1_2 =  self.legs[legID].ik(np.add(self.legs[legID].defaultPos, [fHeight, 0, fDistance]),True)
+            pos1_3 =  self.legs[legID].ik(np.add(self.legs[legID].defaultPos, [0, 0, fDistance]),True)
+            pos2=  self.legs[legID].ik(np.add(self.legs[legID].defaultPos, [0, 0, int(fDistance*2/3)]),True)
+            pos3=  self.legs[legID].ik(np.add(self.legs[legID].defaultPos, [0, 0, int(fDistance*1/3)]),True)
+            pos4=  self.legs[legID].ik(self.legs[legID].defaultPos,True)
+            print("P1")
+            position, velocity, time = self.pvt_Sim(legID,pos1_1, sampleRate,True)
+            ptemp, vtemp, ttemp =  self.pvt_Sim(legID,pos1_2, sampleRate,True,int(np.floor(len(time))),pos1_1)
+            position = np.vstack((position,ptemp))
+            velocity = np.vstack((velocity,vtemp))
+            time = np.vstack((time,ttemp))
+            print("P2")
+            position2,velocity2,time2 = self.pvt_Sim((legID + 1)%4,pos2, sampleRate,True,len(time))
+            
+            position3,velocity3,time3 = self.pvt_Sim((legID + 2)%4,pos3, sampleRate,True,len(time))
+            print("P3", position3)
+            print("P4")
+            position4,velocity4,time4 = self.pvt_Sim((legID + 3)%4,pos4, sampleRate,True,len(time))
+            
+            print("targetAngles",180/np.pi*pos1_2 )
+            print("targetAngles2",180/np.pi*pos2)
+            print("targetAngles3",180/np.pi*pos3)
+            print("targetAngles4",180/np.pi*pos4)
+            
+            
+            for i,pos in enumerate(position):
+                mujoco.mj_step(model, data)
+                self.legs[legID].setServos(position[i,:],True)
+                self.legs[(legID + 1)%4].setServos(position2[i,:],True)
+                self.legs[(legID + 2)%4].setServos(position3[i,:],True)
+                self.legs[(legID + 3)%4].setServos(position4[i,:],True)
+                mujoco.mj_step(model, data)
+                tm.sleep(sampleRate)
+                viewer.sync()
+                
+                
+            self.legToMove = (legID + 1) % 4 
+            for i in time:
+                mujoco.mj_step(model, data)
+                viewer.sync()
+            
+            #print(self.controllers.inputAngles)
+    def step(self, legID, fHeight, fDistance, hDist,sampleRate):
+        legID=self.legToMove 
+        lastLegID = [0,1,2,3]
+        adjacentLegID  = {0: 1, 1: 0, 2: 3, 3: 2}.get(legID)
+        supportLegID = (legID + 2) % 4
+        lastLegID.remove(legID)
+        lastLegID.remove(adjacentLegID)
+        lastLegID.remove(supportLegID)
+        lastLegID = lastLegID[0]
+        print("\n\nStep", self.state, " Leg",legID," Adjacent Leg",adjacentLegID," Support Leg",supportLegID," Last Leg",lastLegID)
+        print("Current Leg Angles",self.legs[legID].getServos(False))
+        targetAngles = np.nan
+        targetAngles2 = np.nan
+        targetAngles3 = np.nan
+        rearLegFactor = -1 if legID > 1 else 1
+        tiltAngle = 10
         match self.state:
-            case 0 :
-                targetAngles = np.array(self.legs[legID].ik(np.add(self.defaultPos, [vHeight, hDist, 0]),True))
-                
-                
+            case 0:
+                targetAngles = np.pi/180*np.add(self.legs[legID].getServos(False),[0,0,0])
+                targetAngles2 = np.pi/180*np.add(self.defaultAngle ,[0,0,tiltAngle])
+                targetAngles3 = np.pi/180*self.defaultAngle 
             case 1:
-                if(legID>1):
-                    targetAngles = np.array(self.legs[legID].ik(np.add(self.defaultPos, [vHeight, hDist, -vDistance]),True))
-                else:
-                    targetAngles = np.array(self.legs[legID].ik(np.add(self.defaultPos, [vHeight, hDist, vDistance]),True))
-                
-                
+                targetAngles = self.legs[legID].ik(np.add(self.legs[legID].defaultPos, [fHeight, 0, 0]),True)
+                targetAngles2 = np.pi/180*np.add(self.defaultAngle ,[0,0,tiltAngle])
+                targetAngles3 = np.pi/180*self.defaultAngle 
             case 2:
-                targetAngles = np.array(self.legs[legID].ik(self.defaultPos,True))
                 
+                targetAngles = self.legs[legID].ik(np.add(self.legs[legID].defaultPos, [fHeight, 0, rearLegFactor*fDistance]),True)
+                targetAngles2 = np.pi/180*np.add(self.defaultAngle ,[0,0,tiltAngle])
+                targetAngles3 = np.pi/180*self.defaultAngle 
+            
+            case 4:
                 
+                targetAngles = self.legs[legID].ik(np.add(self.legs[legID].defaultPos, [0, 0, rearLegFactor*fDistance]),True)
+                targetAngles2 = np.pi/180*np.add(self.defaultAngle ,[0,0,tiltAngle])
+                targetAngles3 = np.pi/180*self.defaultAngle
+            case 3:
+                
+                targetAngles = np.pi/180*self.defaultAngle
+                targetAngles2 = np.pi/180*self.defaultAngle
+                targetAngles3 = np.pi/180*self.defaultAngle
             case _:
+                
+                
                 print("Error with step")
                 # self.controllers.setAngle(self.defaultAngle, 1, 2)
                 # self.controllers.setAngle(self.defaultAngle, 2, 2)
 
-
-        position, velocity, time = self.pvt_Sim(
-            targetAngles, sampleRate,True
-        )
-        
-        print("targetAngles",180/np.pi*targetAngles)
-        # position2, velocity2, time2 = self.pvt(
-        #     otherLegID, otherTargetAngles, 0.1, duration, rampTime
-        # )
-        for i in range(0, len(position)):
-            mujoco.mj_step(model, data)
+        if self.state >= 100:    
+            print("Set Up")
+            targetAngles = self.defaultAngle
+            position, velocity, time = self.pvt_Sim(legID,targetAngles, sampleRate,False)
+            position2, velocity2, time2 = self.pvt_Sim(legID,np.add(targetAngles,[0,0,15]), sampleRate,False)
+            for i in range(0, len(position)):
+                mujoco.mj_step(model, data)
+                
+                self.legs[0].setServos(position[i,:],True)
+                self.legs[1].setServos(position[i,:],True)
+                self.legs[2].setServos(position[i,:],True)
+                self.legs[3].setServos(position[i,:],True)
+                
+                viewer.sync()
+                tm.sleep(sampleRate/2)
+            self.legToMove = 0    
+            self.state = (self.state + 1) % 101        
+        else: 
+            print("\ntargetAngles",180/np.pi*targetAngles)
+            position, velocity, time = self.pvt_Sim(legID,targetAngles, sampleRate,True)
+            print("targetAngles2",180/np.pi*targetAngles2)
+            position2,velocity2,time2 = self.pvt_Sim(adjacentLegID,targetAngles2, sampleRate,True,len(time))
+            print("targetAngles3",180/np.pi*targetAngles3)
+            position3,velocity3,time3 = self.pvt_Sim(supportLegID,targetAngles3, sampleRate,True,len(time))
             
-            self.legs[legID].setServos(position[i,:],True)
+            for i,pos in enumerate(position):
+                mujoco.mj_step(model, data)
+                self.legs[legID].setServos(position[i,:],True)
+                self.legs[adjacentLegID].setServos(position2[i,:],True)
+                self.legs[lastLegID].setServos(position2[i,:],True)
+                self.legs[supportLegID].setServos(position3[i,:],True)
+                mujoco.mj_step(model, data)
+                tm.sleep(sampleRate/2)
+                viewer.sync()
+            states = 4
+            if(self.state < states):
+                for i in time:
+                    mujoco.mj_step(model, data)
+                    viewer.sync()
             
-            viewer.sync()
-            tm.sleep(sampleRate)
-            # newAngles = self.controllers.setAngle(
-            #     position[i], legID, velocity[i]
-            # )
+            if(self.state == states-1):
+                self.legToMove = (self.legToMove + 1) % 4
             
-        
-        states = 3
-        if(self.state == states-1):
-            self.legToMove = (self.legToMove + 1) % 4 
-        self.state = (self.state + 1) % states
-        tm.sleep(0.1)
-        #print(self.controllers.inputAngles)
+            self.state = (self.state + 1) % states
+            #print(self.controllers.inputAngles)
 
 
 def on_press(key):
-    fHeight = 100
-    fDist = 200
-    hHeight = 100
+    fHeight = 50
+    fDist = 75
+    hHeight = 50
     hDist = 50
     sampleRate=0.01
     legMoving = quadruped.legToMove
@@ -452,39 +571,42 @@ def on_press(key):
 
 
 # setup quad
+
 quadruped = Quad()
 runSim = True
 printOutput = False
-
+model = mujoco.MjModel.from_xml_path("scene.xml")
+data = mujoco.MjData(model)
 if runSim:
     # setup scene
     file_path = "scene.xml"
-    model = mujoco.MjModel.from_xml_path("scene.xml")
-    data = mujoco.MjData(model)
     joint_data_offset = (
         7  # there are 19 data points, 12 are the joints, first 7 aren't joints
     )
     viewer = mujoco.viewer.launch_passive(model, data)
     alpha = -np.pi / 2
     factor = 1
-    fHeight = 150
-    fDist = 200
-    hHeight = 100
-    hDist = 100
-    sampleRate=0.005
+    fHeight = 100
+    fDist = 150
+    hHeight = 1
+    hDist = 20
+    sampleRate=0.0005
     legMoving = quadruped.legToMove
-    
+    count = 0
     while viewer.is_running():
+        #input()
         mujoco.mj_step(model, data)
-
+        
         #     #quadruped.setLegs([-198.8935, 93.6625, 350.8295],False,False)
         #     #quadruped.setLegs([0,0,90],True,False)
 
         # [t1, t2, t3] = quadruped.legs[0].ik([-222.25 - 244 * np.cos(alpha), 93.6625, 107.95 + 244 * np.sin(alpha)], False)
         # quadruped.legs[0].setServos([t1, t2, t3], False)
+    
         quadruped.step(legMoving,fHeight, fDist, hDist, sampleRate)
-        tm.sleep(0.1)
-#Test
+        count+=1
+        
+
         if printOutput:
             for i, leg in enumerate(quadruped.legs):
                 if i == 0:
@@ -517,7 +639,11 @@ else:
     print("No Sim")
     np.set_printoptions(threshold=sys.maxsize)
     #quadruped.step(0,100, 200,0.01)
-    quadruped.pvt_Sim([ 2.15195423e-06, -5.91160885e+01,  1.10533398e+02],0.01,True)
+    print(quadruped.legs[1].fk([0, 0, -90],False))
+    angles = np.array(quadruped.legs[1].ik([0, 0, 0],True))
+    print(angles)
+    position, velocity, time = quadruped.pvt_Sim(0,angles, 0.0005,True)
+    position2,velocity2,time2 = quadruped.pvt_Sim(2,angles, 0.0005,True,len(time))
     # listener = keyboard.Listener(on_press=on_press)
     # listener.start()
     # while True:

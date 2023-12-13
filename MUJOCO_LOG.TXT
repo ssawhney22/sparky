@@ -277,3 +277,9 @@ ERROR: mjv_updateSceneState: m->nu changed
 Sat Dec  9 02:22:45 2023
 ERROR: mjv_updateSceneState: m->nv changed: 0 vs 18
 
+Mon Dec 11 02:35:10 2023
+ERROR: mjv_updateSceneState: m->nv changed: 0 vs 18
+
+Mon Dec 11 23:21:30 2023
+ERROR: mjv_updateSceneState: m->nv changed: 0 vs 18
+
